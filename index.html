@@ -108,7 +108,7 @@
 
 						document.getElementById('info').innerText = '轉換完成';
 
-						var imgBuffer = new Uint16Array(dicom2Raw.getImagePixel(20));
+						var imgBuffer = new Uint16Array(dicom2Raw.getImagePixel(14));
 						var showImg = document.getElementById("CTimg");
 						showImg.setAttribute("width", 512);
 						showImg.setAttribute("height", 512);
