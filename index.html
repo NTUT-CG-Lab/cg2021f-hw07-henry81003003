@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+	<meta charset="utf-8">
+	<title> 作業七範例程式 </title>
+
+	<style>
+		div {
+			margin-bottom: 20px;
+		}
+
+		.my-btn {
+			padding: 10px 20px;
+			color: white;
+			border-radius: 5px;
+			text-decoration: none;
+			margin-right: 5px;
+		}
+
+		.my-btn:hover {
+			color: black;
+		}
+
+		.my-btn.allow {
+			background-color: rgb(62, 62, 179);
+			cursor: pointer;
+		}
+
+		.my-btn.allow:active {
+			background-color: rgba(62, 62, 179, 0.459);
+			color: rgb(252, 7, 7);
+		}
+
+		.my-btn.disabled {
+			background-color: rgba(7, 7, 7, 0.616);
+			cursor: not-allowed;
+		}
+
+	</style>
+</head>
+
+</body>
+	<script src="https://cdn.jsdelivr.net/gh/t109598105/dicom2raw-demo@latest/Lib/dicomtoraw.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/gh/t109598105/ScoreOutputer@latest/dist/scoreoutputer.min.js"></script>
+
+	<div style="padding: 20px; margin: 10px; border-style: solid">
+		<div id="self-eval" style="float:right"></div>
+		
+		<h1> CorCTA Dicom 資料 </h1>
+		<div> 說明請參考 HTML 檔案的原始碼 </div>
+		<div>
+			<a id="choose-dir" class="my-btn disabled"> 選擇檔案夾 </a>
+		</div>
+		<div id="info"> 等待 Dicom... </div>
+		<div id="size"></div>
+		<div>
+			<canvas id="CTimg"></canvas>
+		</div>
+		<div> 
+			<input style="width:500px" type="text" placeholder="檔名_長_寬_高_uint<位元>" id="file-name">
+		</div>
+		<div>
+			<a class="my-btn disabled" id="download-8bit-button" target="_blank"> 下載 8-bit RAW 檔案 </a>
+			<a class="my-btn disabled" id="download-16bit-button" target="_blank"> 下載 16-bit RAW 檔案 </a>
+		</div>
+		
+		
+	</div>
+
+	<script>
+		let all_dir = [];
+
+		function convertRaw(){
+			/**
+			 * 使用 Dicom2Raw 這個 class 進行轉換
+			 * 需要 new 一個實例出來
+			*/
+			var dicom2Raw = new Dicom2Raw();
+
+			/**
+			 * 選擇一個資料夾上傳
+			*/
+			dicom2Raw.readSeriesFromDir(
+				/**
+				 * 這個變數是檢查該資料夾下的附檔名是否符合
+				 * 不符合的話則不處理
+				 * 設為 null 代表不檢查
+				*/
+				null,
+				function(){
+					/**
+					 * Dicom2Raw 的 build 方法
+					 * 將對 dicom  系列的圖像進行整理和組織
+					 * 組成一個真正有序的 object
+					*/
+					dicom2Raw.build();
+					document.getElementById('info').innerText = '讀取成功';
+					
+					var dimension = dicom2Raw.getDim();
+					document.getElementById('size').innerText = '尺寸: ' + dimension.x + ' x ' + dimension.y + ' x ' + dimension.z;
+
+					dicom2Raw.concatnate(function() {
+						var image_8bit, image_16bit, min, max, base64;
+
+						document.getElementById('download-8bit-button').setAttribute('class', 'my-btn allow');
+						document.getElementById('download-16bit-button').setAttribute('class', 'my-btn allow');
+
+						document.getElementById('info').innerText = '轉換完成';
+
+						var imgBuffer = new Uint16Array(dicom2Raw.getImagePixel(20));
+						var showImg = document.getElementById("CTimg");
+						showImg.setAttribute("width", 512);
+						showImg.setAttribute("height", 512);
+						var ctImage = showImg.getContext("2d");
+						var imageContent = ctImage.getImageData(0, 0, showImg.width, showImg.height);
+
+						for (var i = 0; i < imgBuffer.byteLength; i++) {
+							imageContent.data[4 * i] = (imgBuffer[i] * 255) / 4096;
+							imageContent.data[4 * i + 1] = (imgBuffer[i] * 255) / 4096;
+							imageContent.data[4 * i + 2] = (imgBuffer[i] * 255) / 4096;
+							imageContent.data[4 * i + 3] = 255;
+						}
+
+						ctImage.putImageData(imageContent, 0, 0);
+
+						// basic processing for the 16 bit image
+						image_16bit = new Uint16Array(dicom2Raw.rawData);
+						min, max = getMinMax(image_16bit);
+
+						document.getElementById('download-8bit-button').addEventListener('click',  function() {
+							var filename = document.getElementById('file-name').value;
+							image_8bit = new Uint8Array(dicom2Raw.rawData.byteLength / 2);
+							// normalization
+							for (var i = 0; i < image_8bit.length; i++) {
+								image_8bit[i] = (image_16bit[i] / (max + 1)) * 256;
+							}
+							Dicom2Raw.downloadData(
+								filename + '.raw',
+								image_8bit
+							);
+						});
+					
+						document.getElementById('download-16bit-button').addEventListener('click',  function() {
+							var filename = document.getElementById('file-name').value;
+							Dicom2Raw.downloadData(
+								filename + '.raw',
+								dicom2Raw.rawData
+							);
+						});
+					});
+				}
+			);
+		}; 
+		
+		function getMinMax(image) {
+			var min = 99999, max = 0;
+			for (var i = 1; i < image.length; i++) {
+				if (max < image[i]) {
+					max = image[i];
+				}
+				if (min > image[i]) {
+					min = image[i];
+				}
+			}
+			return min, max;
+		}
+
+		/**
+		 * 頁面加載完成時，
+		 * 所要進行的動作會寫在 window.onload 裡面
+		 * 我們會使用到 Dicom2Raw 這個 class 來進行轉換
+		 * 需要使用一個叫做 daikon 的函式庫
+		 * 函式庫: https://github.com/rii-mango/Daikon
+		*/
+		window.onload = function(){
+			var chooseBtn = document.getElementById('choose-dir');
+			
+			chooseBtn.addEventListener('click', function(evt){
+				if(typeof chooseBtn.done == 'undefined'){
+					return;
+				}
+				convertRaw();
+			});
+		
+		
+			/**
+			 * 如果沒有事先引用 daikon，
+			 * 就必須安裝此函式庫，
+			 * 預設使用 jsDelivr 作為 source，
+			 * 可以使用 Dicom2Raw.daikonCDN 變更位址
+			 * 呼叫 Dicom2Raw.installLibrary 安裝函式庫
+			*/
+			if(!Dicom2Raw.isInstalled) {
+				Dicom2Raw.installLibrary(function(){
+					chooseBtn.setAttribute('class', 'my-btn allow');
+					chooseBtn.done = 1;
+				});
+			}
+			else {
+				chooseBtn.done = 1;
+			}
+
+
+			/**
+			 * 自評表 QAQ
+			 * 有做到再勾阿!!
+			*/
+			var so = new ScoreOutputer("你的學號");
+			so.installCSS(function(){
+				so.addChild("成功讀取範例程式所附的 DICOM 檔案", 6, true);
+				so.addChild("轉換 DICOM 序列為 RAW 檔案", 1, false);
+				so.addChild("成功下載轉換好的 RAW 檔案", 1, false);
+				so.addChild("可下載 8 bit 或 16 bit 的 RAW 檔案", 1, false);
+				so.addChild("在網頁中顯示中間的圖像", 1, false);
+				
+				so.renderModal(
+					document.body,
+					'rgba(100,45,58,1)', 
+					'white', 
+					'15pt', 
+					'15px', 
+					'作業 7 自我評分表'
+				);
+				so.installDownloadBtn();
+				so.renderBtn(
+					document.getElementById('self-eval'),
+					"開啟自評表"
+				);
+			});
+		};
+	</script>
+</body>
+
+</html>
