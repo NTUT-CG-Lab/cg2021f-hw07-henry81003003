@@ -131,22 +131,52 @@
 						document.getElementById('download-8bit-button').addEventListener('click',  function() {
 							var filename = document.getElementById('file-name').value;
 							image_8bit = new Uint8Array(dicom2Raw.rawData.byteLength / 2);
-							// normalization
-							for (var i = 0; i < image_8bit.length; i++) {
-								image_8bit[i] = (image_16bit[i] / (max + 1)) * 256;
+							var splits = filename.split("_");
+							var check8 = false;
+
+							for (var i = 0; i < splits.length; i++) {
+								if (splits[i] === "uint8") {
+									console.log(splits[i])
+									check8 = true;
+								}
 							}
-							Dicom2Raw.downloadData(
-								filename + '.raw',
-								image_8bit
-							);
+							
+							if (check8) {
+								// normalization
+								for (var i = 0; i < image_8bit.length; i++) {
+									image_8bit[i] = (image_16bit[i] / (max + 1)) * 256;
+								}
+								Dicom2Raw.downloadData(
+									filename + '.raw',
+									image_8bit
+								);
+							}
+							else {
+								alert("Please input the filename with the right format!!");
+							}
 						});
 					
 						document.getElementById('download-16bit-button').addEventListener('click',  function() {
 							var filename = document.getElementById('file-name').value;
-							Dicom2Raw.downloadData(
-								filename + '.raw',
-								dicom2Raw.rawData
-							);
+							var splits = filename.split("_");
+							var check16 = false;
+
+							for (var i = 0; i < splits.length; i++) {
+								if (splits[i] === "uint16") {
+									check16 = true;
+								}
+							}
+
+							if (check16) {
+								var filename = document.getElementById('file-name').value;
+								Dicom2Raw.downloadData(
+									filename + '.raw',
+									dicom2Raw.rawData
+								);
+							}
+							else {
+								alert("Please input the filename with the right format!!");
+							}
 						});
 					});
 				}
