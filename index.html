@@ -136,12 +136,11 @@
 
 							for (var i = 0; i < splits.length; i++) {
 								if (splits[i] === "uint8") {
-									console.log(splits[i])
 									check8 = true;
 								}
 							}
 							
-							if (check8) {
+							if (check8 && splits.length === 5) {
 								// normalization
 								for (var i = 0; i < image_8bit.length; i++) {
 									image_8bit[i] = (image_16bit[i] / (max + 1)) * 256;
@@ -167,7 +166,7 @@
 								}
 							}
 
-							if (check16) {
+							if (check16 && splits.length === 5) {
 								var filename = document.getElementById('file-name').value;
 								Dicom2Raw.downloadData(
 									filename + '.raw',
